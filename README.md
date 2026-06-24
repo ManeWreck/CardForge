@@ -1,19 +1,35 @@
-# Steam Achievement Manager
+# CardForge
 
-Steam Achievement Manager (SAM) is a lightweight, portable application used to manage achievements and statistics in the popular PC gaming platform Steam. This application requires the [Steam client](https://store.steampowered.com/about/), a Steam account and network access. Steam must be running and the user must be logged in.
+CardForge is an altered fork of Rick "gibbed" Gibbed's Steam Achievement
+Manager (SAM). It keeps the original SAM behavior available while modernizing
+the library picker and adding Steam library helpers around playtime, achievement
+counts, and card-drop tracking.
 
-This is the code for SAM. The closed-source version originally released in 2008, last major release in 2011, and last updated in 2013 (a hotfix).
+This application requires the [Steam client](https://store.steampowered.com/about/),
+a Steam account, and network access. Steam must be running and the user must be
+logged in.
 
-The code is being made available so that those interested can do as they like with it.
+## Fork changes
 
-There are some changes to the code since the last closed-source release:
-- General code maintenance to bring it into a more modern state.
-- Icons have been replaced with ones from the Fugue Icons set.
-- Version has been bumped to 7.0.x.x to indicate the open-source release.
+- Dark CardForge window styling for the picker and game manager.
+- Larger Steam library view with search by name, AppID, and type.
+- Tiles, list, and sortable table library modes.
+- Game hub actions for SAM, store pages, card pages, Steam pages, and AppID copy.
+- Local playtime and achievement-count display where Steam cache data is available.
+- Embedded Steam badge scanner for remaining card drops.
+- Cards-only filter and bulk launch/close helpers for card-drop games.
+- Tray controls for the app and opened game windows.
+- Cached game capsule images for faster startup after first load.
 
-[Download latest release](https://github.com/gibbed/SteamAchievementManager/releases/latest).
+## Original project
 
-[![Build status](https://ci.appveyor.com/api/projects/status/00vic6jliar6j0ol/branch/master?svg=true)](https://ci.appveyor.com/project/gibbed/steamachievementmanager/branch/master)
+The original Steam Achievement Manager code was released by Rick Gibbed and is
+available at [gibbed/SteamAchievementManager](https://github.com/gibbed/SteamAchievementManager).
+The original license notice is preserved in this repository.
+
+The closed-source version originally released in 2008, last major release in
+2011, and last updated in 2013 as a hotfix. The open-source SAM 7.0.x code
+included general maintenance, Fugue icon replacements, and version updates.
 
 ## Attribution
 

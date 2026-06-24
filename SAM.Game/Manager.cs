@@ -28,7 +28,9 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using System.Windows.Forms.VisualStyles;
 using static SAM.Game.InvariantShorthand;
 using APITypes = SAM.API.Types;
 
@@ -51,10 +53,27 @@ namespace SAM.Game
         private readonly API.Callbacks.UserStatsReceived _UserStatsReceivedCallback;
 
         //private API.Callback<APITypes.UserStatsStored> UserStatsStoredCallback;
+        private Panel _TitleBar;
+        private Label _TitleLabel;
+        private Button _MinimizeButton;
+        private Button _MaximizeButton;
+        private Button _CloseButton;
+        private Panel _AchievementHeaderCornerCover;
+        private Panel _AchievementLeftEdgeCover;
+        private Panel _AchievementRightEdgeCover;
+        private Panel _AchievementBottomEdgeCover;
+        private Panel _TabLeftBorderCover;
+        private Panel _TabRightBorderCover;
+        private Panel _TabBottomBorderCover;
+        private ToolStripButton _AchievementsViewButton;
+        private ToolStripButton _StatisticsViewButton;
 
         public Manager(long gameId, API.Client client)
         {
             this.InitializeComponent();
+            this.ConfigureModernGameUi();
+            this.CreateModernTitleBar();
+            this.CreateTabBorderCovers();
 
             this._MainTabControl.SelectedTab = this._AchievementsTabPage;
             //this.statisticsList.Enabled = this.checkBox1.Checked;
@@ -97,6 +116,7 @@ namespace SAM.Game
             {
                 base.Text += " | " + this._GameId.ToString(CultureInfo.InvariantCulture);
             }
+            this._TitleLabel.Text = base.Text;
 
             this._UserStatsReceivedCallback = client.CreateAndRegisterCallback<API.Callbacks.UserStatsReceived>();
             this._UserStatsReceivedCallback.OnRun += this.OnUserStatsReceived;
@@ -216,7 +236,7 @@ namespace SAM.Game
                     return false;
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 return false;
             }
@@ -506,7 +526,8 @@ namespace SAM.Game
                     Checked = isAchieved,
                     Tag = info,
                     Text = info.Name,
-                    BackColor = (def.Permission & 3) == 0 ? Color.Black : Color.FromArgb(64, 0, 0),
+                    BackColor = (def.Permission & 3) == 0 ? Color.FromArgb(14, 17, 22) : Color.FromArgb(64, 0, 0),
+                    ForeColor = Color.FromArgb(232, 238, 247),
                 };
 
                 info.Item = item;
@@ -913,6 +934,518 @@ namespace SAM.Game
         private void OnFilterUpdate(object sender, KeyEventArgs e)
         {
             this.GetAchievements();
+        }
+
+        private void ConfigureModernGameUi()
+        {
+            this.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? this.Icon;
+            this.BackColor = Color.FromArgb(18, 21, 27);
+            this.ForeColor = Color.FromArgb(232, 238, 247);
+            this.FormBorderStyle = FormBorderStyle.None;
+            this.MinimumSize = new Size(720, 460);
+
+            ConfigureToolStrip(this._MainToolStrip);
+            ConfigureToolStrip(this._AchievementsToolStrip);
+            this.CreateGameViewButtons();
+            this._MainStatusStrip.BackColor = Color.FromArgb(28, 33, 42);
+            this._MainStatusStrip.ForeColor = Color.FromArgb(170, 187, 204);
+            this._MainStatusStrip.Renderer = new DarkToolStripRenderer();
+            this._MainStatusStrip.SizingGrip = false;
+
+            this._MatchingStringTextBox.Size = new Size(190, 24);
+            this._MatchingStringTextBox.BackColor = Color.FromArgb(22, 26, 34);
+            this._MatchingStringTextBox.ForeColor = Color.FromArgb(232, 238, 247);
+            this._MatchingStringTextBox.BorderStyle = BorderStyle.FixedSingle;
+            this._MatchingStringTextBox.Control.BackColor = Color.FromArgb(22, 26, 34);
+            this._MatchingStringTextBox.Control.ForeColor = Color.FromArgb(232, 238, 247);
+
+            this._MainTabControl.DrawMode = TabDrawMode.OwnerDrawFixed;
+            this._MainTabControl.Appearance = TabAppearance.FlatButtons;
+            this._MainTabControl.Padding = Point.Empty;
+            this._MainTabControl.DrawItem += this.OnMainTabDrawItem;
+            this._MainTabControl.BackColor = Color.FromArgb(18, 21, 27);
+            Native.ApplyExplorerDarkTheme(this._MainTabControl.Handle);
+            this._AchievementsTabPage.BackColor = Color.FromArgb(18, 21, 27);
+            this._AchievementsTabPage.ForeColor = Color.FromArgb(232, 238, 247);
+            this._AchievementsTabPage.Padding = Padding.Empty;
+            this._AchievementsToolStrip.Location = Point.Empty;
+            this._AchievementListView.Location = new Point(0, this._AchievementsToolStrip.Height);
+            this._StatisticsTabPage.BackColor = Color.FromArgb(18, 21, 27);
+            this._StatisticsTabPage.ForeColor = Color.FromArgb(232, 238, 247);
+            this._StatisticsTabPage.Padding = Padding.Empty;
+            this._EnableStatsEditingCheckBox.BackColor = Color.FromArgb(18, 21, 27);
+            this._EnableStatsEditingCheckBox.ForeColor = Color.FromArgb(232, 238, 247);
+
+            this._AchievementListView.BackColor = Color.FromArgb(14, 17, 22);
+            this._AchievementListView.BorderStyle = BorderStyle.None;
+            this._AchievementListView.ForeColor = Color.FromArgb(232, 238, 247);
+            this._AchievementListView.GridLines = false;
+            this._AchievementListView.OwnerDraw = true;
+            this._AchievementListView.DrawColumnHeader += this.OnAchievementColumnHeaderDraw;
+            this._AchievementListView.DrawItem += this.OnAchievementItemDraw;
+            this._AchievementListView.DrawSubItem += this.OnAchievementSubItemDraw;
+            this._AchievementListView.Resize += (sender, e) => this.AdjustAchievementColumns();
+            this._AchievementsTabPage.Resize += (sender, e) => this.PositionAchievementChromeCovers();
+            this.CreateAchievementChromeCovers();
+
+            this._StatisticsDataGridView.BackgroundColor = Color.FromArgb(14, 17, 22);
+            this._StatisticsDataGridView.BorderStyle = BorderStyle.None;
+            this._StatisticsDataGridView.GridColor = Color.FromArgb(54, 64, 78);
+            this._StatisticsDataGridView.EnableHeadersVisualStyles = false;
+            this._StatisticsDataGridView.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(28, 33, 42);
+            this._StatisticsDataGridView.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(232, 238, 247);
+            this._StatisticsDataGridView.ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.FromArgb(28, 33, 42);
+            this._StatisticsDataGridView.DefaultCellStyle.BackColor = Color.FromArgb(14, 17, 22);
+            this._StatisticsDataGridView.DefaultCellStyle.ForeColor = Color.FromArgb(232, 238, 247);
+            this._StatisticsDataGridView.DefaultCellStyle.SelectionBackColor = Color.FromArgb(0, 120, 215);
+            this._StatisticsDataGridView.DefaultCellStyle.SelectionForeColor = Color.White;
+            this._StatisticsDataGridView.RowHeadersDefaultCellStyle.BackColor = Color.FromArgb(28, 33, 42);
+            this._StatisticsDataGridView.RowHeadersDefaultCellStyle.ForeColor = Color.FromArgb(232, 238, 247);
+
+            Native.ApplyImmersiveDarkMode(this.Handle);
+            Native.ApplyExplorerDarkTheme(this._AchievementListView.Handle);
+            Native.ApplyExplorerDarkTheme(this._StatisticsDataGridView.Handle);
+            Native.ApplyExplorerDarkTheme(this._MatchingStringTextBox.Control.Handle);
+            this.AdjustAchievementColumns();
+        }
+
+        private void CreateTabBorderCovers()
+        {
+            this._TabLeftBorderCover = CreateDarkCover();
+            this._TabRightBorderCover = CreateDarkCover();
+            this._TabBottomBorderCover = CreateDarkCover();
+
+            this.Controls.Add(this._TabLeftBorderCover);
+            this.Controls.Add(this._TabRightBorderCover);
+            this.Controls.Add(this._TabBottomBorderCover);
+            this.Resize += (sender, e) => this.PositionTabBorderCovers();
+            this.PositionTabBorderCovers();
+        }
+
+        private void PositionTabBorderCovers()
+        {
+            if (this._TabLeftBorderCover == null)
+            {
+                return;
+            }
+
+            var bounds = this._MainTabControl.Bounds;
+            this._TabLeftBorderCover.Bounds = new Rectangle(bounds.Left, bounds.Top + 22, 5, bounds.Height - 22);
+            this._TabRightBorderCover.Bounds = new Rectangle(bounds.Right - 5, bounds.Top + 22, 5, bounds.Height - 22);
+            this._TabBottomBorderCover.Bounds = new Rectangle(bounds.Left, bounds.Bottom - 5, bounds.Width, 5);
+
+            this._TabLeftBorderCover.BringToFront();
+            this._TabRightBorderCover.BringToFront();
+            this._TabBottomBorderCover.BringToFront();
+        }
+
+        private void AdjustAchievementColumns()
+        {
+            int availableWidth = this._AchievementListView.ClientSize.Width - 1;
+            if (availableWidth <= 0)
+            {
+                return;
+            }
+
+            const int nameWidth = 200;
+            const int unlockTimeWidth = 160;
+            int descriptionWidth = Math.Max(240, availableWidth - nameWidth - unlockTimeWidth);
+
+            this._AchievementNameColumnHeader.Width = nameWidth;
+            this._AchievementDescriptionColumnHeader.Width = descriptionWidth;
+            this._AchievementUnlockTimeColumnHeader.Width = unlockTimeWidth;
+            this.PositionAchievementChromeCovers();
+        }
+
+        private void CreateAchievementChromeCovers()
+        {
+            this._AchievementHeaderCornerCover = CreateDarkCover();
+            this._AchievementLeftEdgeCover = CreateDarkCover();
+            this._AchievementRightEdgeCover = CreateDarkCover();
+            this._AchievementBottomEdgeCover = CreateDarkCover();
+
+            this._AchievementsTabPage.Controls.Add(this._AchievementHeaderCornerCover);
+            this._AchievementsTabPage.Controls.Add(this._AchievementLeftEdgeCover);
+            this._AchievementsTabPage.Controls.Add(this._AchievementRightEdgeCover);
+            this._AchievementsTabPage.Controls.Add(this._AchievementBottomEdgeCover);
+            this.PositionAchievementChromeCovers();
+        }
+
+        private static Panel CreateDarkCover()
+        {
+            return new Panel
+            {
+                BackColor = Color.FromArgb(14, 17, 22),
+                Enabled = false,
+                Visible = true,
+            };
+        }
+
+        private void PositionAchievementChromeCovers()
+        {
+            if (this._AchievementHeaderCornerCover == null)
+            {
+                return;
+            }
+
+            var bounds = this._AchievementListView.Bounds;
+            int headerHeight = Math.Max(22, this.Font.Height + 8);
+            int scrollWidth = SystemInformation.VerticalScrollBarWidth + 8;
+            int scrollHeight = SystemInformation.HorizontalScrollBarHeight + 8;
+
+            this._AchievementHeaderCornerCover.Bounds = new Rectangle(
+                bounds.Right - scrollWidth,
+                bounds.Top,
+                scrollWidth,
+                headerHeight);
+            this._AchievementLeftEdgeCover.Bounds = new Rectangle(bounds.Left, bounds.Top, 5, bounds.Height);
+            this._AchievementRightEdgeCover.Bounds = new Rectangle(bounds.Right - scrollWidth, bounds.Top, scrollWidth, bounds.Height);
+            this._AchievementBottomEdgeCover.Bounds = new Rectangle(bounds.Left, bounds.Bottom - scrollHeight, bounds.Width, scrollHeight);
+
+            this._AchievementHeaderCornerCover.BringToFront();
+            this._AchievementLeftEdgeCover.BringToFront();
+            this._AchievementRightEdgeCover.BringToFront();
+            this._AchievementBottomEdgeCover.BringToFront();
+        }
+
+        private static void ConfigureToolStrip(ToolStrip toolStrip)
+        {
+            toolStrip.BackColor = Color.FromArgb(28, 33, 42);
+            toolStrip.ForeColor = Color.FromArgb(232, 238, 247);
+            toolStrip.GripStyle = ToolStripGripStyle.Hidden;
+            toolStrip.Renderer = new DarkToolStripRenderer();
+        }
+
+        private void CreateGameViewButtons()
+        {
+            this._AchievementsViewButton = new ToolStripButton("Achievements")
+            {
+                Checked = true,
+                CheckOnClick = false,
+                DisplayStyle = ToolStripItemDisplayStyle.Text,
+            };
+            this._AchievementsViewButton.Click += (sender, e) => this.SelectGameView(this._AchievementsTabPage);
+
+            this._StatisticsViewButton = new ToolStripButton("Statistics")
+            {
+                CheckOnClick = false,
+                DisplayStyle = ToolStripItemDisplayStyle.Text,
+            };
+            this._StatisticsViewButton.Click += (sender, e) => this.SelectGameView(this._StatisticsTabPage);
+
+            this._MainToolStrip.Items.Insert(0, new ToolStripSeparator());
+            this._MainToolStrip.Items.Insert(0, this._StatisticsViewButton);
+            this._MainToolStrip.Items.Insert(0, this._AchievementsViewButton);
+        }
+
+        private void SelectGameView(TabPage tabPage)
+        {
+            this._MainTabControl.SelectedTab = tabPage;
+            this._AchievementsViewButton.Checked = tabPage == this._AchievementsTabPage;
+            this._StatisticsViewButton.Checked = tabPage == this._StatisticsTabPage;
+            this.PositionTabBorderCovers();
+            this.PositionAchievementChromeCovers();
+        }
+
+        private void OnMainTabDrawItem(object sender, DrawItemEventArgs e)
+        {
+            var selected = e.Index == this._MainTabControl.SelectedIndex;
+            var bounds = e.Bounds;
+            using SolidBrush background = new(selected ? Color.FromArgb(28, 33, 42) : Color.FromArgb(18, 21, 27));
+            using SolidBrush foreground = new(Color.FromArgb(232, 238, 247));
+            e.Graphics.FillRectangle(background, bounds);
+            TextRenderer.DrawText(
+                e.Graphics,
+                this._MainTabControl.TabPages[e.Index].Text,
+                this.Font,
+                bounds,
+                foreground.Color,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
+
+        private void OnAchievementColumnHeaderDraw(object sender, DrawListViewColumnHeaderEventArgs e)
+        {
+            using SolidBrush background = new(Color.FromArgb(28, 33, 42));
+            using Pen border = new(Color.FromArgb(54, 64, 78));
+            e.Graphics.FillRectangle(background, e.Bounds);
+            e.Graphics.DrawRectangle(border, e.Bounds);
+            TextRenderer.DrawText(
+                e.Graphics,
+                e.Header.Text,
+                this.Font,
+                new Rectangle(e.Bounds.X + 6, e.Bounds.Y, e.Bounds.Width - 8, e.Bounds.Height),
+                Color.FromArgb(232, 238, 247),
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        }
+
+        private void OnAchievementItemDraw(object sender, DrawListViewItemEventArgs e)
+        {
+        }
+
+        private void OnAchievementSubItemDraw(object sender, DrawListViewSubItemEventArgs e)
+        {
+            var selected = e.Item.Selected;
+            var protectedItem = e.Item.BackColor.R > 40 && e.Item.BackColor.G == 0;
+            Color backgroundColor = selected
+                ? Color.FromArgb(0, 120, 215)
+                : protectedItem
+                    ? Color.FromArgb(64, 0, 0)
+                    : Color.FromArgb(14, 17, 22);
+            using SolidBrush background = new(backgroundColor);
+            e.Graphics.FillRectangle(background, e.Bounds);
+            using Pen border = new(Color.FromArgb(42, 49, 60));
+            e.Graphics.DrawLine(border, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
+            e.Graphics.DrawLine(border, e.Bounds.Right - 1, e.Bounds.Top, e.Bounds.Right - 1, e.Bounds.Bottom);
+
+            if (e.ColumnIndex == 0)
+            {
+                var checkState = e.Item.Checked ? CheckBoxState.CheckedNormal : CheckBoxState.UncheckedNormal;
+                var checkBoxBounds = new Rectangle(e.Bounds.X + 6, e.Bounds.Y + (e.Bounds.Height - 14) / 2, 14, 14);
+                CheckBoxRenderer.DrawCheckBox(e.Graphics, checkBoxBounds.Location, checkState);
+
+                if (e.Item.ImageIndex >= 0 && e.Item.ImageIndex < this._AchievementImageList.Images.Count)
+                {
+                    var image = this._AchievementImageList.Images[e.Item.ImageIndex];
+                    e.Graphics.DrawImage(image, e.Bounds.X + 28, e.Bounds.Y + 4, 56, 56);
+                }
+
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    e.SubItem.Text,
+                    this.Font,
+                    new Rectangle(e.Bounds.X + 92, e.Bounds.Y, e.Bounds.Width - 96, e.Bounds.Height),
+                    Color.FromArgb(232, 238, 247),
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+                return;
+            }
+
+            TextRenderer.DrawText(
+                e.Graphics,
+                e.SubItem.Text,
+                this.Font,
+                new Rectangle(e.Bounds.X + 6, e.Bounds.Y, e.Bounds.Width - 10, e.Bounds.Height),
+                Color.FromArgb(232, 238, 247),
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        }
+
+        private void CreateModernTitleBar()
+        {
+            this._TitleBar = new Panel
+            {
+                BackColor = Color.FromArgb(11, 14, 19),
+                Dock = DockStyle.Top,
+                Height = 34,
+            };
+            this._TitleBar.MouseDown += this.OnTitleBarMouseDown;
+
+            this._TitleLabel = new Label
+            {
+                AutoEllipsis = true,
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point),
+                ForeColor = Color.FromArgb(232, 238, 247),
+                Padding = new Padding(12, 0, 0, 0),
+                Text = this.Text,
+                TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
+            };
+            this._TitleLabel.MouseDown += this.OnTitleBarMouseDown;
+
+            this._CloseButton = CreateWindowButton("X", Color.FromArgb(201, 64, 75));
+            this._CloseButton.Dock = DockStyle.Right;
+            this._CloseButton.Click += (sender, e) => this.Close();
+
+            this._MaximizeButton = CreateWindowButton("□", Color.FromArgb(68, 78, 92));
+            this._MaximizeButton.Dock = DockStyle.Right;
+            this._MaximizeButton.Click += (sender, e) => this.ToggleWindowState();
+
+            this._MinimizeButton = CreateWindowButton("-", Color.FromArgb(68, 78, 92));
+            this._MinimizeButton.Dock = DockStyle.Right;
+            this._MinimizeButton.Click += (sender, e) => this.WindowState = FormWindowState.Minimized;
+
+            this._TitleBar.Controls.Add(this._TitleLabel);
+            this._TitleBar.Controls.Add(this._MinimizeButton);
+            this._TitleBar.Controls.Add(this._MaximizeButton);
+            this._TitleBar.Controls.Add(this._CloseButton);
+            this.Controls.Add(this._TitleBar);
+        }
+
+        private void ToggleWindowState()
+        {
+            this.WindowState = this.WindowState == FormWindowState.Maximized
+                ? FormWindowState.Normal
+                : FormWindowState.Maximized;
+        }
+
+        private static Button CreateWindowButton(string text, Color hoverColor)
+        {
+            Button button = new()
+            {
+                BackColor = Color.FromArgb(11, 14, 19),
+                Dock = DockStyle.Right,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point),
+                ForeColor = Color.FromArgb(232, 238, 247),
+                Size = new Size(46, 34),
+                TabStop = false,
+                Text = text,
+                TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
+            };
+            button.FlatAppearance.BorderSize = 0;
+            button.MouseEnter += (sender, e) => button.BackColor = hoverColor;
+            button.MouseLeave += (sender, e) => button.BackColor = Color.FromArgb(11, 14, 19);
+            return button;
+        }
+
+        private void OnTitleBarMouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left)
+            {
+                return;
+            }
+
+            Native.ReleaseCapture();
+            Native.SendMessage(this.Handle, Native.WmNclButtonDown, Native.HtCaption, 0);
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            const int resizeBorder = 8;
+
+            if (m.Msg == Native.WmNcHitTest && this.WindowState == FormWindowState.Normal)
+            {
+                base.WndProc(ref m);
+                if ((int)m.Result == Native.HtClient)
+                {
+                    var point = this.PointToClient(new Point(m.LParam.ToInt32()));
+                    bool left = point.X <= resizeBorder;
+                    bool right = point.X >= this.ClientSize.Width - resizeBorder;
+                    bool top = point.Y <= resizeBorder;
+                    bool bottom = point.Y >= this.ClientSize.Height - resizeBorder;
+
+                    if (left && top)
+                    {
+                        m.Result = (IntPtr)Native.HtTopLeft;
+                    }
+                    else if (right && top)
+                    {
+                        m.Result = (IntPtr)Native.HtTopRight;
+                    }
+                    else if (left && bottom)
+                    {
+                        m.Result = (IntPtr)Native.HtBottomLeft;
+                    }
+                    else if (right && bottom)
+                    {
+                        m.Result = (IntPtr)Native.HtBottomRight;
+                    }
+                    else if (left)
+                    {
+                        m.Result = (IntPtr)Native.HtLeft;
+                    }
+                    else if (right)
+                    {
+                        m.Result = (IntPtr)Native.HtRight;
+                    }
+                    else if (top)
+                    {
+                        m.Result = (IntPtr)Native.HtTop;
+                    }
+                    else if (bottom)
+                    {
+                        m.Result = (IntPtr)Native.HtBottom;
+                    }
+                }
+
+                return;
+            }
+
+            base.WndProc(ref m);
+        }
+
+        private static class Native
+        {
+            public const int WmNcHitTest = 0x0084;
+            public const int WmNclButtonDown = 0x00A1;
+            public const int HtClient = 0x0001;
+            public const int HtCaption = 0x0002;
+            public const int HtLeft = 0x000A;
+            public const int HtRight = 0x000B;
+            public const int HtTop = 0x000C;
+            public const int HtTopLeft = 0x000D;
+            public const int HtTopRight = 0x000E;
+            public const int HtBottom = 0x000F;
+            public const int HtBottomLeft = 0x0010;
+            public const int HtBottomRight = 0x0011;
+
+            [DllImport("user32.dll")]
+            public static extern bool ReleaseCapture();
+
+            [DllImport("user32.dll")]
+            public static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
+
+            [DllImport("dwmapi.dll")]
+            private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int attributeValue, int attributeSize);
+
+            [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+            private static extern int SetWindowTheme(IntPtr hwnd, string subAppName, string subIdList);
+
+            public static void ApplyImmersiveDarkMode(IntPtr handle)
+            {
+                int enabled = 1;
+                if (DwmSetWindowAttribute(handle, 20, ref enabled, sizeof(int)) != 0)
+                {
+                    DwmSetWindowAttribute(handle, 19, ref enabled, sizeof(int));
+                }
+            }
+
+            public static void ApplyExplorerDarkTheme(IntPtr handle)
+            {
+                SetWindowTheme(handle, "DarkMode_Explorer", null);
+            }
+        }
+
+        private sealed class DarkToolStripRenderer : ToolStripProfessionalRenderer
+        {
+            public DarkToolStripRenderer()
+                : base(new DarkColorTable())
+            {
+            }
+
+            protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+            {
+                using Pen pen = new(Color.FromArgb(42, 49, 60));
+                e.Graphics.DrawLine(pen, 0, e.ToolStrip.Height - 1, e.ToolStrip.Width, e.ToolStrip.Height - 1);
+            }
+
+            protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
+            {
+                using Pen pen = new(Color.FromArgb(66, 76, 92));
+                int x = e.Item.Width / 2;
+                e.Graphics.DrawLine(pen, x, 6, x, e.Item.Height - 6);
+            }
+        }
+
+        private sealed class DarkColorTable : ProfessionalColorTable
+        {
+            public override Color ToolStripGradientBegin => Color.FromArgb(28, 33, 42);
+            public override Color ToolStripGradientMiddle => Color.FromArgb(28, 33, 42);
+            public override Color ToolStripGradientEnd => Color.FromArgb(28, 33, 42);
+            public override Color MenuStripGradientBegin => Color.FromArgb(28, 33, 42);
+            public override Color MenuStripGradientEnd => Color.FromArgb(28, 33, 42);
+            public override Color ImageMarginGradientBegin => Color.FromArgb(28, 33, 42);
+            public override Color ImageMarginGradientMiddle => Color.FromArgb(28, 33, 42);
+            public override Color ImageMarginGradientEnd => Color.FromArgb(28, 33, 42);
+            public override Color ButtonSelectedGradientBegin => Color.FromArgb(42, 49, 60);
+            public override Color ButtonSelectedGradientMiddle => Color.FromArgb(42, 49, 60);
+            public override Color ButtonSelectedGradientEnd => Color.FromArgb(42, 49, 60);
+            public override Color ButtonPressedGradientBegin => Color.FromArgb(54, 64, 78);
+            public override Color ButtonPressedGradientMiddle => Color.FromArgb(54, 64, 78);
+            public override Color ButtonPressedGradientEnd => Color.FromArgb(54, 64, 78);
+            public override Color MenuItemSelected => Color.FromArgb(42, 49, 60);
+            public override Color MenuItemSelectedGradientBegin => Color.FromArgb(42, 49, 60);
+            public override Color MenuItemSelectedGradientEnd => Color.FromArgb(42, 49, 60);
+            public override Color MenuItemBorder => Color.FromArgb(72, 86, 106);
+            public override Color ToolStripBorder => Color.FromArgb(42, 49, 60);
         }
     }
 }

@@ -12,7 +12,7 @@
     <FileVersion>7.0.0.0</FileVersion>
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>SAM.ico</ApplicationIcon>
+    <ApplicationIcon>CardForge.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <PropertyGroup>
@@ -25,6 +25,7 @@
     <LangVersion>9.0</LangVersion>
     <Platforms>x86</Platforms>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
     <OutputPath>..\bin\</OutputPath>
@@ -35,6 +36,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Windows.Forms" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+    <PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
   </ItemGroup>
   <ItemGroup>
     <Compile Update="MyListView.cs">

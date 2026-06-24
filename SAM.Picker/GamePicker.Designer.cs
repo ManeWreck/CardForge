@@ -83,9 +83,6 @@
             this._PickerToolStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this._RefreshGamesButton,
             _ToolStripSeparator1,
-            this._AddGameTextBox,
-            this._AddGameButton,
-            _ToolStripSeparator2,
             this._FindGamesLabel,
             this._SearchGameTextBox,
             this._FilterDropDownButton});
@@ -122,8 +119,8 @@
             // _FindGamesLabel
             //
             this._FindGamesLabel.Name = "_FindGamesLabel";
-            this._FindGamesLabel.Size = new System.Drawing.Size(33, 22);
-            this._FindGamesLabel.Text = "Filter";
+            this._FindGamesLabel.Size = new System.Drawing.Size(42, 22);
+            this._FindGamesLabel.Text = "Search";
             //
             // _SearchGameTextBox
             //

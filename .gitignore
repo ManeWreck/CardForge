@@ -13,6 +13,13 @@
 private/
 upload/
 
+# CardForge runtime state. These folders may contain WebView2 cookies,
+# Steam session data, local storage, browser cache, or generated release zips.
+*.WebView2/
+**/*.WebView2/
+**/EBWebView/
+CardForge-*.zip
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

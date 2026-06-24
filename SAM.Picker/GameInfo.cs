@@ -43,6 +43,11 @@ namespace SAM.Picker
 
         public ListViewItem Item;
 
+        public int? PlaytimeMinutes;
+        public int? AchievementTotal;
+        public int? AchievementUnlocked;
+        public int? CardDropsRemaining;
+
         public GameInfo(uint id, string type)
         {
             this.Id = id;
@@ -50,6 +55,10 @@ namespace SAM.Picker
             this.Name = null;
             this.ImageIndex = 0;
             this.ImageUrl = null;
+            this.PlaytimeMinutes = null;
+            this.AchievementTotal = null;
+            this.AchievementUnlocked = null;
+            this.CardDropsRemaining = null;
         }
     }
 }
