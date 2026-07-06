@@ -59,4 +59,8 @@
   <ItemGroup>
     <ProjectReference Include="..\SAM.API\SAM.API.csproj" />
   </ItemGroup>
+  <Target Name="CopyCardForgeExecutable" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(TargetDir)CardForge.exe" />
+    <Copy SourceFiles="$(TargetPath).config" DestinationFiles="$(TargetDir)CardForge.exe.config" Condition="Exists('$(TargetPath).config')" />
+  </Target>
 </Project>

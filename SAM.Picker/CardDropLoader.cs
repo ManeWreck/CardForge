@@ -247,11 +247,55 @@ namespace SAM.Picker
 
         private string GetWebViewUserDataFolder()
         {
-            return Path.Combine(
+            var folder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "CardForge",
+                "WebView2",
+                this._SteamId.ToString(CultureInfo.InvariantCulture));
+            this.MigrateLegacyWebViewUserDataFolder(folder);
+            Directory.CreateDirectory(folder);
+            return folder;
+        }
+
+        private void MigrateLegacyWebViewUserDataFolder(string folder)
+        {
+            if (Directory.Exists(folder) == true)
+            {
+                return;
+            }
+
+            var legacyFolder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "SAM Modern Library",
                 "WebView2",
                 this._SteamId.ToString(CultureInfo.InvariantCulture));
+            if (Directory.Exists(legacyFolder) == false)
+            {
+                return;
+            }
+
+            try
+            {
+                CopyDirectory(legacyFolder, folder);
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        private static void CopyDirectory(string source, string destination)
+        {
+            Directory.CreateDirectory(destination);
+            foreach (var directory in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
+            {
+                Directory.CreateDirectory(directory.Replace(source, destination));
+            }
+
+            foreach (var file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+            {
+                var target = file.Replace(source, destination);
+                File.Copy(file, target, false);
+            }
         }
 
         private static int? ParseDropsFromText(string text)

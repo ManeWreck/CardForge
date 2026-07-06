@@ -36,10 +36,15 @@ account, cookies, session data, or a personal game library.
   available.
 - Embedded Steam badge scanner for remaining card drops.
 - Cards Only filter for games with remaining card drops.
+- Favorite games filter and local favorites list.
+- Scheduler for timed launch, close, restart, queue rotation, and card-aware
+  relaunching.
 - Bulk launch and close helpers for games that still have card drops.
 - Tray menu for hiding CardForge, refreshing data, and managing opened game
   windows.
 - Cached Steam capsule images for faster startup after the first load.
+- `CardForge.exe` is generated beside `SAM.Picker.exe` for a cleaner launch
+  name.
 
 ## Card Drops
 
@@ -50,10 +55,34 @@ that is currently signed in inside the embedded viewer.
 The scanner is intentionally local and user-driven:
 
 - it reads Steam community badge pages that the signed-in user can already see;
-- it stores browser state only in the local WebView2 profile;
+- it stores browser state only in the local `%LOCALAPPDATA%\CardForge\WebView2`
+  profile so the Steam login can survive app restarts;
 - WebView2 profile folders are ignored by Git and are not included in releases;
 - the release archive does not include cookies, local storage, sessions, or
   account-specific cache.
+
+## Scheduler
+
+The Scheduler window can build a timed run list from selected games, favorites,
+or games with card drops remaining.
+
+Supported behavior:
+
+- launch one or more games for a chosen number of minutes;
+- close and relaunch the same batch;
+- rotate through a queue such as A, B, C;
+- limit the maximum number of simultaneously opened games;
+- refresh card-drop data between cycles;
+- in Card-aware mode, keep games that still need cards and skip games that no
+  longer have drops remaining.
+
+Example setups:
+
+- A every 15 minutes: add A, set 15 minutes, max 1, Repeat on, Rotate off.
+- A+B+C every 30 minutes: add A, B, C, set 30 minutes, max 3, Repeat on.
+- Rotate A then B then C hourly: add A, B, C, set 60 minutes, max 1, Rotate on.
+- Card farming queue: add favorites or Cards Only games, enable Card-aware and
+  Refresh drops each cycle, then set the maximum simultaneous games.
 
 ## Current Status
 
@@ -71,8 +100,9 @@ Use the latest preview release from this repository:
 
 [Download CardForge preview](https://github.com/ManeWreck/CardForge/releases/latest)
 
-The release archive is portable. Extract it anywhere and run `SAM.Picker.exe`.
-Steam must be running, and you must be logged in to Steam.
+The release archive is portable. Extract it anywhere and run `CardForge.exe`.
+`SAM.Picker.exe` remains available for compatibility. Steam must be running, and
+you must be logged in to Steam.
 
 ## Build
 
@@ -109,8 +139,9 @@ default:
 - `EBWebView/`;
 - generated `CardForge-*.zip` archives.
 
-Before publishing a release, delete any local WebView2 profile folders created
-while signing in to Steam through the embedded viewer.
+Do not publish local WebView2 profile folders created while signing in to Steam
+through the embedded viewer. They are intentionally kept on the user's machine
+so the embedded Steam account does not reset on every CardForge restart.
 
 ## Original Project
 

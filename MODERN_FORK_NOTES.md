@@ -15,16 +15,21 @@ Current changes:
 - cached Steam capsule images;
 - library search by name, AppID, and type;
 - tiles, list, and sortable table view modes;
+- favorite games and a favorites filter;
 - local playtime and achievement-count display where Steam cache data exists;
 - embedded Steam badge scanner for remaining card drops;
 - cards-only filter and launch/close helpers for card-drop games;
+- scheduler for timed launch, close, restart, queue rotation, and card-aware
+  relaunching;
 - tray controls for the app and opened game windows;
 - game hub actions for SAM, store, card pages, Steam pages, and AppID copy.
+- `CardForge.exe` build output next to the legacy `SAM.Picker.exe` name.
 
 Privacy notes:
 
 - WebView2 profile folders are runtime state and must never be committed or
-  included in release archives.
+  included in release archives, but they should stay on the user's machine so
+  the embedded Steam login survives CardForge restarts.
 - `LogoCache` contains generated game images only; it is also treated as runtime
   cache and is not part of source control.
 - Release archives should be made from a clean build output after deleting any

@@ -83,12 +83,16 @@ namespace SAM.Picker
         private ToolStripButton _LoadCardDataButton;
         private ToolStripButton _CardsRemainingFilterButton;
         private ToolStripButton _LaunchCardGamesButton;
+        private ToolStripButton _FavoritesFilterButton;
+        private ToolStripButton _ToggleFavoriteButton;
+        private ToolStripButton _SchedulerButton;
         private Dictionary<uint, int> _PlaytimeByAppId;
         private readonly Dictionary<uint, int> _CardDropsByAppId;
         private readonly List<Process> _OpenedGameProcesses;
         private readonly Dictionary<uint, Process> _OpenedGameProcessesByAppId;
         private readonly Dictionary<int, IntPtr> _OpenedGameWindows;
         private readonly HashSet<uint> _CommunityStatsRequested;
+        private readonly HashSet<uint> _FavoriteAppIds;
         private View _CurrentLibraryView;
         private NotifyIcon _TrayIcon;
         private ContextMenuStrip _TrayMenu;
@@ -112,6 +116,7 @@ namespace SAM.Picker
             this._OpenedGameProcessesByAppId = new();
             this._OpenedGameWindows = new();
             this._CommunityStatsRequested = new();
+            this._FavoriteAppIds = LoadFavoriteAppIds();
             this._CurrentLibraryView = View.LargeIcon;
             this._SortColumn = 0;
             this._SortAscending = true;
@@ -215,6 +220,7 @@ namespace SAM.Picker
             var wantMods = this._FilterModsMenuItem.Checked == true;
             var wantJunk = this._FilterJunkMenuItem.Checked == true;
             var wantCardsRemaining = this._CardsRemainingFilterButton?.Checked == true;
+            var wantFavorites = this._FavoritesFilterButton?.Checked == true;
 
             this._FilteredGames.Clear();
             foreach (var info in this._Games.Values.OrderBy(gi => gi.Name))
@@ -225,6 +231,11 @@ namespace SAM.Picker
                 }
 
                 if (wantCardsRemaining == true && (info.CardDropsRemaining.HasValue == false || info.CardDropsRemaining.Value <= 0))
+                {
+                    continue;
+                }
+
+                if (wantFavorites == true && this._FavoriteAppIds.Contains(info.Id) == false)
                 {
                     continue;
                 }
@@ -268,7 +279,7 @@ namespace SAM.Picker
             {
                 Text = this.GetLibraryItemText(info),
                 ImageIndex = this._CurrentLibraryView == View.LargeIcon ? info.ImageIndex : this._CurrentLibraryView == View.Details ? 0 : -1,
-                ToolTipText = $"{info.Name}\nAppID: {info.Id}\nType: {GetDisplayType(info.Type)}\nCard drops left: {FormatCardDrops(info)}",
+                ToolTipText = $"{info.Name}\nAppID: {info.Id}\nType: {GetDisplayType(info.Type)}\nFavorite: {(this.IsFavorite(info) == true ? "yes" : "no")}\nCard drops left: {FormatCardDrops(info)}",
             };
             e.Item.SubItems.Add(info.Id.ToString(CultureInfo.InvariantCulture));
             e.Item.SubItems.Add(FormatPlaytime(info.PlaytimeMinutes));
@@ -625,6 +636,94 @@ namespace SAM.Picker
             return info.CardDropsRemaining.HasValue == true
                 ? info.CardDropsRemaining.Value.ToString(CultureInfo.InvariantCulture)
                 : "-";
+        }
+
+        private bool IsFavorite(GameInfo info)
+        {
+            return info != null && this._FavoriteAppIds.Contains(info.Id) == true;
+        }
+
+        private string FormatFavoritePrefix(GameInfo info)
+        {
+            return this.IsFavorite(info) == true ? "[Fav] " : "";
+        }
+
+        private void ToggleFocusedFavorite()
+        {
+            var info = this.GetFocusedGame();
+            if (info == null)
+            {
+                return;
+            }
+
+            if (this._FavoriteAppIds.Contains(info.Id) == true)
+            {
+                this._FavoriteAppIds.Remove(info.Id);
+                this._PickerStatusLabel.Text = $"Removed {info.Name} from favorites.";
+            }
+            else
+            {
+                this._FavoriteAppIds.Add(info.Id);
+                this._PickerStatusLabel.Text = $"Added {info.Name} to favorites.";
+            }
+
+            this.SaveFavoriteAppIds();
+            this.RefreshGames();
+            this.UpdateGameHub();
+        }
+
+        private static HashSet<uint> LoadFavoriteAppIds()
+        {
+            HashSet<uint> result = new();
+            var path = GetFavoritesPath();
+            if (File.Exists(path) == false)
+            {
+                return result;
+            }
+
+            try
+            {
+                foreach (var line in File.ReadAllLines(path))
+                {
+                    if (uint.TryParse(line.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var appId) == true)
+                    {
+                        result.Add(appId);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+            }
+
+            return result;
+        }
+
+        private void SaveFavoriteAppIds()
+        {
+            try
+            {
+                Directory.CreateDirectory(GetCardForgeDataDirectory());
+                File.WriteAllLines(
+                    GetFavoritesPath(),
+                    this._FavoriteAppIds
+                        .OrderBy(appId => appId)
+                        .Select(appId => appId.ToString(CultureInfo.InvariantCulture)));
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        private static string GetCardForgeDataDirectory()
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "CardForge");
+        }
+
+        private static string GetFavoritesPath()
+        {
+            return Path.Combine(GetCardForgeDataDirectory(), "favorites.txt");
         }
 
         private static Dictionary<uint, int> LoadLocalPlaytimeByAppId(API.Client client)
@@ -986,6 +1085,25 @@ namespace SAM.Picker
             this._LaunchCardGamesButton.ToolTipText = "Open every game with card drops remaining.";
             this._LaunchCardGamesButton.Click += (sender, e) => this.OpenCardRemainingGames();
             this._PickerToolStrip.Items.Add(this._LaunchCardGamesButton);
+
+            this._FavoritesFilterButton = new ToolStripButton("Favorites");
+            this._FavoritesFilterButton.CheckOnClick = true;
+            this._FavoritesFilterButton.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            this._FavoritesFilterButton.ToolTipText = "Show only favorite games.";
+            this._FavoritesFilterButton.CheckedChanged += (sender, e) => this.RefreshGames();
+            this._PickerToolStrip.Items.Add(this._FavoritesFilterButton);
+
+            this._ToggleFavoriteButton = new ToolStripButton("Fav +/-");
+            this._ToggleFavoriteButton.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            this._ToggleFavoriteButton.ToolTipText = "Add or remove the selected game from favorites.";
+            this._ToggleFavoriteButton.Click += (sender, e) => this.ToggleFocusedFavorite();
+            this._PickerToolStrip.Items.Add(this._ToggleFavoriteButton);
+
+            this._SchedulerButton = new ToolStripButton("Scheduler");
+            this._SchedulerButton.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            this._SchedulerButton.ToolTipText = "Open the timed launch/restart scheduler.";
+            this._SchedulerButton.Click += (sender, e) => this.OpenScheduler();
+            this._PickerToolStrip.Items.Add(this._SchedulerButton);
         }
 
         private void SetLibraryView(View view)
@@ -1050,15 +1168,15 @@ namespace SAM.Picker
                 var cards = info.CardDropsRemaining.HasValue == true && info.CardDropsRemaining.Value > 0
                     ? $" - Cards {info.CardDropsRemaining.Value.ToString(CultureInfo.InvariantCulture)}"
                     : "";
-                return $"{info.Name}\nAppID {info.Id} - {GetDisplayType(info.Type)}{cards}";
+                return $"{this.FormatFavoritePrefix(info)}{info.Name}\nAppID {info.Id} - {GetDisplayType(info.Type)}{cards}";
             }
 
             if (this._CurrentLibraryView == View.List)
             {
-                return $"{info.Name}  |  AppID {info.Id}  |  {FormatPlaytime(info.PlaytimeMinutes)}  |  {FormatAchievements(info)}  |  Cards left: {FormatCardDrops(info)}";
+                return $"{this.FormatFavoritePrefix(info)}{info.Name}  |  AppID {info.Id}  |  {FormatPlaytime(info.PlaytimeMinutes)}  |  {FormatAchievements(info)}  |  Cards left: {FormatCardDrops(info)}";
             }
 
-            return info.Name;
+            return this.FormatFavoritePrefix(info) + info.Name;
         }
 
         private void ApplyTableColumnWidths()
@@ -1150,7 +1268,7 @@ namespace SAM.Picker
             foreach (var info in this._FilteredGames)
             {
                 var index = this._TableGridView.Rows.Add(
-                    info.Name,
+                    this.FormatFavoritePrefix(info) + info.Name,
                     info.Id.ToString(CultureInfo.InvariantCulture),
                     FormatPlaytime(info.PlaytimeMinutes),
                     FormatAchievements(info),
@@ -1496,6 +1614,7 @@ namespace SAM.Picker
             this._TrayMenu.Items.Add(new ToolStripSeparator());
             this._TrayMenu.Items.Add("Refresh Library", null, this.OnRefresh);
             this._TrayMenu.Items.Add("Refresh Card Drops", null, (sender, e) => this.RefreshCardDropsInBackground());
+            this._TrayMenu.Items.Add("Open Scheduler", null, (sender, e) => this.OpenScheduler());
             this._TrayMenu.Items.Add(new ToolStripSeparator());
             this._TrayMenu.Items.Add("Launch Card Drop Games", null, (sender, e) => this.OpenCardRemainingGames());
             this._TrayMenu.Items.Add("Close Card Drop Games", null, (sender, e) => this.CloseCardRemainingGames());
@@ -1777,25 +1896,35 @@ namespace SAM.Picker
 
         private void RefreshCardDropsInBackground()
         {
+            this.RefreshCardDropsHiddenAsync();
+        }
+
+        private Task<Dictionary<uint, int>> RefreshCardDropsHiddenAsync()
+        {
             if (this._RefreshingCardDrops == true)
             {
-                return;
+                return Task.FromResult(this.GetCurrentCardDrops());
             }
 
+            TaskCompletionSource<Dictionary<uint, int>> completion = new();
             this._RefreshingCardDrops = true;
             this._PickerStatusLabel.Text = "Refreshing card drops...";
             var steamId = this._SteamClient.SteamUser.GetSteamId();
+            bool completed = false;
             CardDropLoader loader = new(steamId, drops =>
             {
                 if (this.IsDisposed == true)
                 {
+                    completion.TrySetResult(drops);
                     return;
                 }
 
                 this.BeginInvoke((Action)(() =>
                 {
                     this.ApplyCardDrops(drops);
+                    completed = true;
                     this._RefreshingCardDrops = false;
+                    completion.TrySetResult(drops);
                 }));
             }, true, true)
             {
@@ -1811,8 +1940,60 @@ namespace SAM.Picker
                 {
                     this._RefreshingCardDrops = false;
                 }
+
+                if (completed == false)
+                {
+                    completion.TrySetResult(this.GetCurrentCardDrops());
+                }
             };
             loader.Show(this);
+            return completion.Task;
+        }
+
+        private Dictionary<uint, int> GetCurrentCardDrops()
+        {
+            return this._Games.Values
+                .Where(info => info.CardDropsRemaining.HasValue == true)
+                .ToDictionary(info => info.Id, info => info.CardDropsRemaining.Value);
+        }
+
+        private void OpenScheduler()
+        {
+            if (this.Visible == false)
+            {
+                this.ShowMainFromTray();
+            }
+
+            CardForgeScheduleForm form = new(
+                () => this._Games.Values.OrderBy(info => info.Name).ToList(),
+                () => this._Games.Values.Where(this.IsFavorite).OrderBy(info => info.Name).ToList(),
+                info => this.OpenSelectedGame(info, true),
+                this.CloseScheduledGame,
+                this.RefreshCardDropsHiddenAsync);
+            form.Show(this);
+        }
+
+        private void CloseScheduledGame(GameInfo info)
+        {
+            if (info == null)
+            {
+                return;
+            }
+
+            this.RefreshOpenedGameProcesses();
+            if (this._OpenedGameProcessesByAppId.TryGetValue(info.Id, out var process) == false ||
+                IsProcessAlive(process) == false)
+            {
+                return;
+            }
+
+            try
+            {
+                process.CloseMainWindow();
+            }
+            catch (Exception)
+            {
+            }
         }
 
         private static IntPtr WaitForMainWindowHandle(Process process)
@@ -1857,6 +2038,8 @@ namespace SAM.Picker
             menu.Items.Add("Open Steam store page", null, (sender, e) => this.OpenSelectedGameUrl("https://store.steampowered.com/app/{0}/"));
             menu.Items.Add("Open Steam cards page", null, (sender, e) => this.OpenSelectedGameUrl("https://steamcommunity.com/my/gamecards/{0}/"));
             menu.Items.Add("Open Steam achievements page", null, (sender, e) => this.OpenSelectedGameUrl("https://steamcommunity.com/stats/{0}/achievements"));
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Add / remove favorite", null, (sender, e) => this.ToggleFocusedFavorite());
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Copy AppID", null, (sender, e) =>
             {
@@ -1988,7 +2171,7 @@ namespace SAM.Picker
 
             this._GameHubTitleLabel.Text = info.Name;
             this._GameHubMetaLabel.Text =
-                $"AppID {info.Id.ToString(CultureInfo.InvariantCulture)}  |  {GetDisplayType(info.Type)}\n" +
+                $"AppID {info.Id.ToString(CultureInfo.InvariantCulture)}  |  {GetDisplayType(info.Type)}  |  Favorite: {(this.IsFavorite(info) == true ? "yes" : "no")}\n" +
                 $"Played: {FormatPlaytime(info.PlaytimeMinutes)}  |  Achievements: {FormatAchievements(info)}  |  Card drops left: {FormatCardDrops(info)}";
             this.SetGameHubEnabled(true);
             this.FetchCommunityStatsIfNeeded(info);
@@ -2022,6 +2205,7 @@ namespace SAM.Picker
         {
             foreach (var kv in drops)
             {
+                this._CardDropsByAppId[kv.Key] = kv.Value;
                 if (this._Games.TryGetValue(kv.Key, out var info) == true)
                 {
                     info.CardDropsRemaining = kv.Value;
